@@ -15,6 +15,8 @@ You can test it using the AWS CLI by issuing `aws sts get-caller-identity`. It s
 
 Make sure [AWS Config](https://aws.amazon.com/config/) is set up to record configuration changes of your resources.
 
+## CLI
+
 ```
 usage: awslog [-h] [--type TYPE] [--number NUMBER] [--before BEFORE]
               [--after AFTER] [--deleted] [--context CONTEXT]
@@ -108,4 +110,55 @@ $ awslog --type AWS::DynamoDB::Table \
    "tableName": "some-random-table-name",
 -  "tableSizeBytes": 123456,
    "tableStatus": "ACTIVE"
+```
+
+## Python module
+
+```python console
+>>> import boto3
+>>> import awslog
+>>> config = boto3.client('config')
+>>> after, before = list(awslog.get_config_history(config, 'AWS::EC2::SecurityGroup', 'sg-12345678'))
+>>> print('\n'.join(awslog.create_diff(after, before)))
+```
+
+```
+--- arn:aws:ec2:us-east-1:123456789012:security-group/sg-12345678/configuration	2018-05-16 11:19:12
++++ arn:aws:ec2:us-east-1:123456789012:security-group/sg-12345678/configuration	2018-05-16 21:48:48
+@@ -36,35 +36,25 @@
+     {
+       "fromPort": 1234,
+       "ipProtocol": "tcp",
+       "ipRanges": [],
+       "ipv4Ranges": [],
+       "ipv6Ranges": [],
+       "prefixListIds": [],
+       "toPort": 1234,
+       "userIdGroupPairs": [
+         {
+-          "description": "my fancy security group",
+-          "groupId": "sg-9abcdef0",
+-          "userId": 123456789012
+-        },
+-        {
+           "groupId": "sg-fedcba98",
+           "userId": 123456789012
+         },
+         {
+           "groupId": "sg-76543210",
+-          "userId": 123456789012
+-        },
+-        {
+-          "description": "the best security group",
+-          "groupId": "sg-13579bdf",
+           "userId": 123456789012
+         }
+       ]
+     }
+   ],
+   "ipPermissionsEgress": [
+     {
+       "ipProtocol": -1,
+       "ipRanges": [
+         "0.0.0.0/0"
 ```
