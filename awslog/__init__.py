@@ -104,6 +104,7 @@ def main():
     parser.add_argument('--after', '-a', help="show changes older than the specified date and time")
     parser.add_argument('--deleted', '-d', action='store_true', help="include deleted resources")
     parser.add_argument('--context', '-c', type=int, default=10, help="number of context lines in the diffs")
+    parser.add_argument('--no-color', '-o', action='store_true', help="disable colored output")
     args = parser.parse_args()
     resource_type = None
     if args.type:
@@ -131,7 +132,7 @@ def main():
                                       limit=args.number + 1, before=before, after=after))
     for i in range(len(history) - 1):
         old, new = history[i + 1], history[i]
-        print('\n'.join(create_diff(new, old, args.context)))
+        print('\n'.join(create_diff(new, old, args.context, not args.no_color)))
         print()
 
 
@@ -149,7 +150,10 @@ def colordiff(a, b, fromfile='', tofile='', fromfiledate='', tofiledate='', n=3,
             yield diff
 
 
-def create_diff(new, old, context=10):
+def create_diff(new, old, context=10, color=False):
+    if not color:
+        crayons.disable()
+
     fromfiledate = old['time'].strftime("%Y-%m-%d %H:%M:%S")
     tofiledate = new['time'].strftime("%Y-%m-%d %H:%M:%S")
 
