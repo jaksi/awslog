@@ -131,47 +131,45 @@ def main():
                                       limit=args.number + 1, before=before, after=after))
     for i in range(len(history) - 1):
         old, new = history[i + 1], history[i]
-        for diff in create_diff(new, old, args.context):
-            print(diff)
+        print('\n'.join(create_diff(new, old, args.context)))
         print()
 
 
-def create_diff(new, old, context=10):
-    for i, diff in enumerate(unified_diff(json.dumps(old['configuration'], indent=2).splitlines(),
-                                          json.dumps(new['configuration'], indent=2).splitlines(),
-                                          fromfile='{}/configuration'.format(old['arn']),
-                                          tofile='{}/configuration'.format(new['arn']),
-                                          fromfiledate=old['time'].strftime("%Y-%m-%d %H:%M:%S"),
-                                          tofiledate=new['time'].strftime("%Y-%m-%d %H:%M:%S"),
-                                          n=context, lineterm='')):
+def colordiff(a, b, fromfile='', tofile='', fromfiledate='', tofiledate='', n=3, lineterm='\n'):
+    for i, diff in enumerate(unified_diff(a, b, fromfile, tofile, fromfiledate, tofiledate, n, lineterm)):
         if i < 2:
-            yield crayons.white(diff, bold=True)
+            yield str(crayons.white(diff, bold=True))
         elif i == 2:
-            yield crayons.blue(diff)
+            yield str(crayons.blue(diff))
         elif diff.startswith("+"):
-            yield crayons.green(diff)
+            yield str(crayons.green(diff))
         elif diff.startswith("-"):
-            yield crayons.red(diff)
+            yield str(crayons.red(diff))
         else:
             yield diff
 
-    for i, diff in enumerate(unified_diff(json.dumps(old['relationships'], indent=2).splitlines(),
-                                          json.dumps(new['relationships'], indent=2).splitlines(),
-                                          fromfile='{}/relationships'.format(old['arn']),
-                                          tofile='{}/relationships'.format(new['arn']),
-                                          fromfiledate=old['time'].strftime("%Y-%m-%d %H:%M:%S"),
-                                          tofiledate=new['time'].strftime("%Y-%m-%d %H:%M:%S"),
-                                          n=context, lineterm='')):
-        if i < 2:
-            yield crayons.white(diff, bold=True)
-        elif i == 2:
-            yield crayons.blue(diff)
-        elif diff.startswith("+"):
-            yield crayons.green(diff)
-        elif diff.startswith("-"):
-            yield crayons.red(diff)
-        else:
-            yield diff
+
+def create_diff(new, old, context=10):
+    fromfiledate = old['time'].strftime("%Y-%m-%d %H:%M:%S")
+    tofiledate = new['time'].strftime("%Y-%m-%d %H:%M:%S")
+
+    for diff in colordiff(json.dumps(old['configuration'], indent=2).splitlines(),
+                          json.dumps(new['configuration'], indent=2).splitlines(),
+                          fromfile='{}/configuration'.format(old['arn']),
+                          tofile='{}/configuration'.format(new['arn']),
+                          fromfiledate=fromfiledate,
+                          tofiledate=tofiledate,
+                          n=context, lineterm=''):
+        yield diff
+
+    for diff in colordiff(json.dumps(old['relationships'], indent=2).splitlines(),
+                          json.dumps(new['relationships'], indent=2).splitlines(),
+                          fromfile='{}/relationships'.format(old['arn']),
+                          tofile='{}/relationships'.format(new['arn']),
+                          fromfiledate=fromfiledate,
+                          tofiledate=tofiledate,
+                          n=context, lineterm=''):
+        yield diff
 
 
 def get_resource_ids(config_client, resource_type, resource_name, limit=1, include_deleted=False):
