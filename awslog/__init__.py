@@ -1,6 +1,7 @@
 from __future__ import print_function, unicode_literals
 
 import json
+import re
 from argparse import ArgumentParser
 from difflib import unified_diff
 
@@ -10,77 +11,112 @@ from six import string_types
 from six.moves.urllib.parse import unquote as urlunquote
 
 
+SUPPORTED_RESOURCE_TYPES = [
+    'AWS::ACM::Certificate',
+    'AWS::AutoScaling::AutoScalingGroup',
+    'AWS::AutoScaling::LaunchConfiguration',
+    'AWS::AutoScaling::ScalingPolicy',
+    'AWS::AutoScaling::ScheduledAction',
+    'AWS::CloudFormation::Stack',
+    'AWS::CloudFront::Distribution',
+    'AWS::CloudFront::StreamingDistribution',
+    'AWS::CloudTrail::Trail',
+    'AWS::CloudWatch::Alarm',
+    'AWS::CodeBuild::Project',
+    'AWS::DynamoDB::Table',
+    'AWS::EC2::CustomerGateway',
+    'AWS::EC2::EIP',
+    'AWS::EC2::Host',
+    'AWS::EC2::Instance',
+    'AWS::EC2::InternetGateway',
+    'AWS::EC2::NetworkAcl',
+    'AWS::EC2::NetworkInterface',
+    'AWS::EC2::RouteTable',
+    'AWS::EC2::SecurityGroup',
+    'AWS::EC2::Subnet',
+    'AWS::EC2::VPC',
+    'AWS::EC2::VPNConnection',
+    'AWS::EC2::VPNGateway',
+    'AWS::EC2::Volume',
+    'AWS::ElasticBeanstalk::Application',
+    'AWS::ElasticBeanstalk::ApplicationVersion',
+    'AWS::ElasticBeanstalk::Environment',
+    'AWS::ElasticLoadBalancing::LoadBalancer',
+    'AWS::ElasticLoadBalancingV2::LoadBalancer',
+    'AWS::IAM::Group',
+    'AWS::IAM::Policy',
+    'AWS::IAM::Role',
+    'AWS::IAM::User',
+    'AWS::Lambda::Function',
+    'AWS::RDS::DBInstance',
+    'AWS::RDS::DBSecurityGroup',
+    'AWS::RDS::DBSnapshot',
+    'AWS::RDS::DBSubnetGroup',
+    'AWS::RDS::EventSubscription',
+    'AWS::Redshift::Cluster',
+    'AWS::Redshift::ClusterParameterGroup',
+    'AWS::Redshift::ClusterSecurityGroup',
+    'AWS::Redshift::ClusterSnapshot',
+    'AWS::Redshift::ClusterSubnetGroup',
+    'AWS::Redshift::EventSubscription',
+    'AWS::S3::Bucket',
+    'AWS::SSM::ManagedInstanceInventory',
+    'AWS::WAF::RateBasedRule',
+    'AWS::WAF::Rule',
+    'AWS::WAF::RuleGroup',
+    'AWS::WAF::WebACL',
+    'AWS::WAFRegional::RateBasedRule',
+    'AWS::WAFRegional::Rule',
+    'AWS::WAFRegional::RuleGroup',
+    'AWS::WAFRegional::WebACL',
+    'AWS::XRay::EncryptionConfig',
+]
+
+RESOURCE_TYPE_PATTERNS = {
+    re.compile('i-'): 'AWS::EC2::Instance',
+    re.compile('eni-'): 'AWS::EC2::NetworkInterface',
+    re.compile('sg-'): 'AWS::EC2::SecurityGroup',
+    re.compile('vol-'): 'AWS::EC2::Volume',
+    re.compile('igw-'): 'AWS::EC2::InternetGateway',
+    re.compile('acl-'): 'AWS::EC2::NetworkAcl',
+    re.compile('rtb-'): 'AWS::EC2::RouteTable',
+    re.compile('subnet-'): 'AWS::EC2::Subnet',
+    re.compile('vpc-'): 'AWS::EC2::VPC',
+    re.compile('vgw-'): 'AWS::EC2::VPNGateway',
+    re.compile('e-'): 'AWS::ElasticBeanstalk::Environment',
+    re.compile('db-'): 'AWS::RDS::DBInstance',
+}
+
+
 def main():
     config = boto3.client('config')
 
     parser = ArgumentParser()
-    parser.add_argument('type', choices=[
-        'EC2::CustomerGateway',
-        'EC2::EIP',
-        'EC2::Host',
-        'EC2::Instance',
-        'EC2::InternetGateway',
-        'EC2::NetworkAcl',
-        'EC2::NetworkInterface',
-        'EC2::RouteTable',
-        'EC2::SecurityGroup',
-        'EC2::Subnet',
-        'CloudTrail::Trail',
-        'EC2::Volume',
-        'EC2::VPC',
-        'EC2::VPNConnection',
-        'EC2::VPNGateway',
-        'IAM::Group',
-        'IAM::Policy',
-        'IAM::Role',
-        'IAM::User',
-        'ACM::Certificate',
-        'RDS::DBInstance',
-        'RDS::DBSubnetGroup',
-        'RDS::DBSecurityGroup',
-        'RDS::DBSnapshot',
-        'RDS::EventSubscription',
-        'ElasticLoadBalancingV2::LoadBalancer',
-        'S3::Bucket',
-        'SSM::ManagedInstanceInventory',
-        'Redshift::Cluster',
-        'Redshift::ClusterSnapshot',
-        'Redshift::ClusterParameterGroup',
-        'Redshift::ClusterSecurityGroup',
-        'Redshift::ClusterSubnetGroup',
-        'Redshift::EventSubscription',
-        'CloudWatch::Alarm',
-        'CloudFormation::Stack',
-        'DynamoDB::Table',
-        'AutoScaling::AutoScalingGroup',
-        'AutoScaling::LaunchConfiguration',
-        'AutoScaling::ScalingPolicy',
-        'AutoScaling::ScheduledAction',
-        'CodeBuild::Project',
-        'WAF::RateBasedRule',
-        'WAF::Rule',
-        'WAF::WebACL',
-        'WAFRegional::RateBasedRule',
-        'WAFRegional::Rule',
-        'WAFRegional::WebACL',
-        'CloudFront::Distribution',
-        'CloudFront::StreamingDistribution',
-        'WAF::RuleGroup',
-        'WAFRegional::RuleGroup',
-        'Lambda::Function',
-        'ElasticBeanstalk::Application',
-        'ElasticBeanstalk::ApplicationVersion',
-        'ElasticBeanstalk::Environment',
-        'ElasticLoadBalancing::LoadBalancer',
-        'XRay::EncryptionConfig',
-    ])
-    parser.add_argument('name')
-    parser.add_argument('--number', '-n', type=int, default=1)
-    parser.add_argument('--before', '-b')
-    parser.add_argument('--after', '-a')
-    parser.add_argument('--deleted', '-d', action='store_true')
-    parser.add_argument('--context', '-c', type=int, default=10)
+    parser.add_argument('name', help="name or ID of the resource to query")
+    parser.add_argument('--type', '-t', help=(
+        "the type of the resource to query\n"
+        "list of supported resource types: "
+        "https://docs.aws.amazon.com/config/latest/developerguide/resource-config-reference.html"
+    ))
+    parser.add_argument('--number', '-n', type=int, default=1, help="number of history items to show")
+    parser.add_argument('--before', '-b', help="show changes more recent than the specified date and time")
+    parser.add_argument('--after', '-a', help="show changes older than the specified date and time")
+    parser.add_argument('--deleted', '-d', action='store_true', help="include deleted resources")
+    parser.add_argument('--context', '-c', type=int, default=10, help="number of context lines in the diffs")
     args = parser.parse_args()
+    resource_type = None
+    if args.type:
+        resource_type = args.type
+    else:
+        for pattern, matching_type in RESOURCE_TYPE_PATTERNS.items():
+            if pattern.match(args.name):
+                resource_type = matching_type
+                break
+
+    if not resource_type:
+        raise ValueError("No type selected and the name {} could not be used to infer one".format(args.name))
+    if resource_type not in SUPPORTED_RESOURCE_TYPES:
+        raise ValueError("{} isn't a supported resource type.".format(resource_type))
     if args.before:
         before = dateparser.parse(args.before, settings={'TO_TIMEZONE': 'UTC'})
     else:
@@ -90,7 +126,7 @@ def main():
     else:
         after = None
 
-    history = list(get_config_history(config, 'AWS::{}'.format(args.type), args.name,
+    history = list(get_config_history(config, resource_type, args.name,
                                       limit=args.number + 1, before=before, after=after))
     for i in range(len(history) - 1):
         old, new = history[i + 1], history[i]
@@ -101,7 +137,17 @@ def main():
 def create_diff(new, old, context=10):
     for diff in unified_diff(json.dumps(old['configuration'], indent=2).splitlines(),
                              json.dumps(new['configuration'], indent=2).splitlines(),
-                             fromfile=old['arn'], tofile=new['arn'],
+                             fromfile='{}/configuration'.format(old['arn']),
+                             tofile='{}/configuration'.format(new['arn']),
+                             fromfiledate=old['time'].strftime("%Y-%m-%d %H:%M:%S"),
+                             tofiledate=new['time'].strftime("%Y-%m-%d %H:%M:%S"),
+                             n=context, lineterm=''):
+        yield diff
+
+    for diff in unified_diff(json.dumps(old['relationships'], indent=2).splitlines(),
+                             json.dumps(new['relationships'], indent=2).splitlines(),
+                             fromfile='{}/relationships'.format(old['arn']),
+                             tofile='{}/relationships'.format(new['arn']),
                              fromfiledate=old['time'].strftime("%Y-%m-%d %H:%M:%S"),
                              tofiledate=new['time'].strftime("%Y-%m-%d %H:%M:%S"),
                              n=context, lineterm=''):
@@ -126,11 +172,7 @@ def get_resource_ids(config_client, resource_type, resource_name, limit=1, inclu
 
 def prettify(value):
     if isinstance(value, list):
-        pretty_list = [prettify(i) for i in value]
-        try:
-            return sorted(pretty_list)
-        except TypeError:
-            return pretty_list
+        return [prettify(i) for i in value]
 
     if isinstance(value, dict):
         return {k: prettify(v) for k, v in sorted(value.items())}
@@ -189,7 +231,8 @@ def get_config_history(config_client, resource_type, resource_name_or_id, **kwar
         for result in page['configurationItems']:
             yield {'time': result['configurationItemCaptureTime'],
                    'arn': result['arn'],
-                   'configuration': prettify(result['configuration'])}
+                   'configuration': prettify(result['configuration']),
+                   'relationships': result['relationships']}
 
 
 if __name__ == '__main__':
