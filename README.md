@@ -84,7 +84,13 @@ $ awslog sg-12345678
 ```
 
 ```
-awslog --type AWS::DynamoDB::Table some-random-table-name --number 2 --before '10 days ago' --after 2016-01-01 --deleted --context 1
+$ awslog --type AWS::DynamoDB::Table \
+>        --number 2 \
+>        --before '10 days ago' \
+>        --after 2016-01-01 \
+>        --deleted \
+>        --context 1 \
+>        some-random-table-name
 --- arn:aws:dynamodb:us-east-1:123456789012:table/some-random-table-name/configuration	2017-08-31 13:39:51
 +++ arn:aws:dynamodb:us-east-1:123456789012:table/some-random-table-name/configuration	2018-01-23 01:39:41
 @@ -21,2 +21,3 @@
