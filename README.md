@@ -4,6 +4,8 @@ Show the history and changes between configuration versions of AWS resources
 
 Uses AWS Config to fetch the configuration history of resources, only works on [resources supported by AWS Config](https://docs.aws.amazon.com/config/latest/developerguide/resource-config-reference.html).
 
+![Screenshot](screenshot.png)
+
 # Installation
 
 `pip install awslog`
