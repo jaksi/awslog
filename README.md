@@ -41,7 +41,7 @@ optional arguments:
 ```
 
 Examples:
-```
+```shellsession
 $ awslog sg-12345678
 --- arn:aws:ec2:us-east-1:123456789012:security-group/sg-12345678/configuration	2018-05-16 11:19:12
 +++ arn:aws:ec2:us-east-1:123456789012:security-group/sg-12345678/configuration	2018-05-16 21:48:48
@@ -83,7 +83,7 @@ $ awslog sg-12345678
          "0.0.0.0/0"
 ```
 
-```
+```shellsession
 $ awslog --type AWS::DynamoDB::Table \
 >        --number 2 \
 >        --before '10 days ago' \
