@@ -12,5 +12,6 @@ setup(
         'boto3==1.9',
         'six==1.11',
         'dateparser==0.7.0',
+        'crayons==0.1.2',
     ]
 )
