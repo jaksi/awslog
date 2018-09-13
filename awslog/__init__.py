@@ -140,7 +140,7 @@ def colordiff(a, b, fromfile='', tofile='', fromfiledate='', tofiledate='', n=3,
     for i, diff in enumerate(unified_diff(a, b, fromfile, tofile, fromfiledate, tofiledate, n, lineterm)):
         if i < 2:
             yield str(crayons.white(diff, bold=True))
-        elif i == 2:
+        elif diff.startswith("@"):
             yield str(crayons.blue(diff))
         elif diff.startswith("+"):
             yield str(crayons.green(diff))
