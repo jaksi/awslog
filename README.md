@@ -21,7 +21,7 @@ Make sure [AWS Config](https://aws.amazon.com/config/) is set up to record confi
 
 ```
 usage: awslog [-h] [--type TYPE] [--number NUMBER] [--before BEFORE]
-              [--after AFTER] [--deleted] [--context CONTEXT]
+              [--after AFTER] [--deleted] [--context CONTEXT] [--no-color]
               name
 
 positional arguments:
@@ -42,76 +42,79 @@ optional arguments:
   --deleted, -d         include deleted resources
   --context CONTEXT, -c CONTEXT
                         number of context lines in the diffs
+  --no-color, -o        disable colored output
 ```
 
 Examples:
 ```shellsession
-$ awslog sg-12345678
---- arn:aws:ec2:us-east-1:123456789012:security-group/sg-12345678/configuration	2018-05-16 11:19:12
-+++ arn:aws:ec2:us-east-1:123456789012:security-group/sg-12345678/configuration	2018-05-16 21:48:48
-@@ -36,35 +36,25 @@
+$ awslog sg-7235f203
+--- arn:aws:ec2:us-east-1:281519598877:security-group/sg-7235f203/configuration	2018-09-12 23:44:36
++++ arn:aws:ec2:us-east-1:281519598877:security-group/sg-7235f203/configuration	2018-09-12 23:53:44
+@@ -1,24 +1,24 @@
+ {
+   "description": "default VPC security group",
+   "groupId": "sg-7235f203",
+   "groupName": "default",
+   "ipPermissions": [
      {
-       "fromPort": 1234,
+       "fromPort": 80,
        "ipProtocol": "tcp",
-       "ipRanges": [],
-       "ipv4Ranges": [],
+       "ipRanges": [
+-        "1.1.1.1/32"
++        "0.0.0.0/0"
+       ],
+       "ipv4Ranges": [
+         {
+-          "cidrIp": "1.1.1.1/32"
++          "cidrIp": "0.0.0.0/0"
+         }
+       ],
        "ipv6Ranges": [],
        "prefixListIds": [],
-       "toPort": 1234,
-       "userIdGroupPairs": [
-         {
--          "description": "my fancy security group",
--          "groupId": "sg-9abcdef0",
--          "userId": 123456789012
--        },
--        {
-           "groupId": "sg-fedcba98",
-           "userId": 123456789012
-         },
-         {
-           "groupId": "sg-76543210",
--          "userId": 123456789012
--        },
--        {
--          "description": "the best security group",
--          "groupId": "sg-13579bdf",
-           "userId": 123456789012
-         }
-       ]
+       "toPort": 80,
+       "userIdGroupPairs": []
      }
    ],
    "ipPermissionsEgress": [
      {
-       "ipProtocol": -1,
-       "ipRanges": [
-         "0.0.0.0/0"
 ```
 
 ```shellsession
-$ awslog --type AWS::DynamoDB::Table \
+$ awslog --type AWS::IAM::User \
 >        --number 2 \
->        --before '10 days ago' \
->        --after 2016-01-01 \
+>        --before '10 minutes ago' \
+>        --after '2018-01-01' \
 >        --deleted \
->        --context 1 \
->        some-random-table-name
---- arn:aws:dynamodb:us-east-1:123456789012:table/some-random-table-name/configuration	2017-08-31 13:39:51
-+++ arn:aws:dynamodb:us-east-1:123456789012:table/some-random-table-name/configuration	2018-01-23 01:39:41
-@@ -21,2 +21,3 @@
-   "tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/some-random-table-name",
-+  "tableId": "some-random-uuid",
-   "tableName": "some-random-table-name",
+>        --context 3 \
+>        --no-color \
+>        ReadOnly
+--- arn:aws:iam::281519598877:user/ReadOnly/configuration	2018-09-13 11:28:16
++++ arn:aws:iam::281519598877:user/ReadOnly/configuration	2018-09-13 11:53:02
+@@ -1,10 +1,6 @@
+ {
+   "arn": "arn:aws:iam::281519598877:user/ReadOnly",
+   "attachedManagedPolicies": [
+-    {
+-      "policyArn": "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess",
+-      "policyName": "AmazonEC2ReadOnlyAccess"
+-    },
+     {
+       "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess",
+       "policyName": "AdministratorAccess"
 
---- arn:aws:dynamodb:us-east-1:123456789012:table/some-random-table-name/configuration	2017-08-30 13:39:52
-+++ arn:aws:dynamodb:us-east-1:123456789012:table/some-random-table-name/configuration	2017-08-31 13:39:51
-@@ -8,3 +8,2 @@
-   "creationDateTime": some-unix-timestamp,
--  "itemCount": 1234,
-   "keySchema": [
-@@ -23,3 +22,2 @@
-   "tableName": "some-random-table-name",
--  "tableSizeBytes": 123456,
-   "tableStatus": "ACTIVE"
+--- arn:aws:iam::281519598877:user/ReadOnly/configuration	2018-09-13 10:58:19
++++ arn:aws:iam::281519598877:user/ReadOnly/configuration	2018-09-13 11:28:16
+@@ -4,6 +4,10 @@
+     {
+       "policyArn": "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess",
+       "policyName": "AmazonEC2ReadOnlyAccess"
++    },
++    {
++      "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess",
++      "policyName": "AdministratorAccess"
+     },
+     {
+       "policyArn": "arn:aws:iam::aws:policy/IAMUserChangePassword",
 ```
 
 ## Python module
@@ -120,47 +123,38 @@ $ awslog --type AWS::DynamoDB::Table \
 >>> import boto3
 >>> import awslog
 >>> config = boto3.client('config')
->>> after, before = list(awslog.get_config_history(config, 'AWS::EC2::SecurityGroup', 'sg-12345678'))
+>>> after, before = list(awslog.get_config_history(config, 'AWS::EC2::SecurityGroup', 'sg-7235f203'))
 >>> print('\n'.join(awslog.create_diff(after, before)))
 ```
 
 ```
---- arn:aws:ec2:us-east-1:123456789012:security-group/sg-12345678/configuration	2018-05-16 11:19:12
-+++ arn:aws:ec2:us-east-1:123456789012:security-group/sg-12345678/configuration	2018-05-16 21:48:48
-@@ -36,35 +36,25 @@
+--- arn:aws:ec2:us-east-1:281519598877:security-group/sg-7235f203/configuration	2018-09-12 23:44:36
++++ arn:aws:ec2:us-east-1:281519598877:security-group/sg-7235f203/configuration	2018-09-12 23:53:44
+@@ -1,24 +1,24 @@
+ {
+   "description": "default VPC security group",
+   "groupId": "sg-7235f203",
+   "groupName": "default",
+   "ipPermissions": [
      {
-       "fromPort": 1234,
+       "fromPort": 80,
        "ipProtocol": "tcp",
-       "ipRanges": [],
-       "ipv4Ranges": [],
+       "ipRanges": [
+-        "1.1.1.1/32"
++        "0.0.0.0/0"
+       ],
+       "ipv4Ranges": [
+         {
+-          "cidrIp": "1.1.1.1/32"
++          "cidrIp": "0.0.0.0/0"
+         }
+       ],
        "ipv6Ranges": [],
        "prefixListIds": [],
-       "toPort": 1234,
-       "userIdGroupPairs": [
-         {
--          "description": "my fancy security group",
--          "groupId": "sg-9abcdef0",
--          "userId": 123456789012
--        },
--        {
-           "groupId": "sg-fedcba98",
-           "userId": 123456789012
-         },
-         {
-           "groupId": "sg-76543210",
--          "userId": 123456789012
--        },
--        {
--          "description": "the best security group",
--          "groupId": "sg-13579bdf",
-           "userId": 123456789012
-         }
-       ]
+       "toPort": 80,
+       "userIdGroupPairs": []
      }
    ],
    "ipPermissionsEgress": [
      {
-       "ipProtocol": -1,
-       "ipRanges": [
-         "0.0.0.0/0"
 ```
