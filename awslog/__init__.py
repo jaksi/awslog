@@ -129,7 +129,8 @@ def main():
         after = None
 
     history = list(get_config_history(config, resource_type, args.name,
-                                      limit=args.number + 1, before=before, after=after))
+                                      limit=args.number + 1, before=before, after=after,
+                                      include_deleted=args.deleted))
     for i in range(len(history) - 1):
         old, new = history[i + 1], history[i]
         print('\n'.join(create_diff(new, old, args.context, not args.no_color)))
